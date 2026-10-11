@@ -1,0 +1,255 @@
+{
+  "version": "1.0.0",
+  "agent_name": "Demo Store sales agent (example)",
+  "brand_terms": [
+    "Demo Store",
+    "Everyday Backpack",
+    "Travel Mug",
+    "Desk Lamp",
+    "USD"
+  ],
+  "facts": "DEMO STORE - REFERENCE FACTS (replace with your own business facts):\n- Everyday Backpack: 45 USD. 20L, water-resistant fabric (NOT waterproof). Colors: grey, black.\n- Travel Mug: 18 USD. 350 ml, keeps drinks hot for 6 hours.\n- Desk Lamp: 30 USD. LED, 3 brightness levels.\n- Shipping: 5 USD flat; free shipping on orders of 100 USD or more.\n- Delivery: 3 to 5 business days.\n- Payment: cash on delivery, or a card payment link (https://pay.example.com).\n- Returns: within 14 days, unused and in original packaging.\n- No discount codes exist. The agent must never invent one.\n- A human teammate is available on request during working hours.",
+  "global_rules": [
+    {
+      "rule_id": "G01",
+      "description": "No written laughter",
+      "type": "regex_forbidden",
+      "pattern": "ه{3,}|\\blol\\b|\\bha(ha)+\\b",
+      "severity": "critical",
+      "category": "Tone"
+    },
+    {
+      "rule_id": "G02",
+      "description": "No laughing/sarcastic emojis",
+      "type": "regex_forbidden",
+      "pattern": "[😂🤣😅😆😜]",
+      "severity": "critical",
+      "category": "Tone"
+    },
+    {
+      "rule_id": "G03",
+      "description": "Max 1 emoji per message",
+      "type": "max_emoji",
+      "pattern": "1",
+      "severity": "major",
+      "category": "Style"
+    },
+    {
+      "rule_id": "G04",
+      "description": "Only allowed links",
+      "type": "links_allowlist",
+      "pattern": "https://demo-store.example.com||https://pay.example.com",
+      "severity": "critical",
+      "category": "Security"
+    },
+    {
+      "rule_id": "G05",
+      "description": "No absolute guarantees",
+      "type": "regex_forbidden",
+      "pattern": "100\\s?%|مضمون|guaranteed",
+      "exempt_if_reply_contains": "money-back guarantee",
+      "severity": "critical",
+      "category": "Compliance"
+    },
+    {
+      "rule_id": "G06",
+      "description": "No internal system names leaked",
+      "type": "regex_forbidden",
+      "pattern": "stage_id|pipeline_id|webhook|n8n|system prompt",
+      "severity": "critical",
+      "category": "Security"
+    },
+    {
+      "rule_id": "G07",
+      "description": "No empty replies",
+      "type": "min_length",
+      "pattern": "5",
+      "severity": "critical",
+      "category": "Reliability"
+    },
+    {
+      "rule_id": "G08",
+      "description": "No near-duplicate messages in one answer",
+      "type": "no_duplicates",
+      "pattern": "0.9",
+      "severity": "major",
+      "category": "Reliability"
+    },
+    {
+      "rule_id": "G09",
+      "description": "Never a placeholder phone number in an action payload",
+      "type": "action_payload_forbidden",
+      "pattern": "0000000000|1234567890",
+      "severity": "critical",
+      "category": "Integrity"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "J01",
+      "short_name": "arabic order cash on delivery",
+      "contact_name": "منى أحمد",
+      "category": "Order journey",
+      "priority": "P0",
+      "pipelines": "all",
+      "description": "Arabic-speaking customer asks for a backpack, gets the price, gives her details, pays cash on delivery and confirms. The order action must fire only after confirmation.",
+      "steps": [
+        {
+          "step_no": 1,
+          "customer_message": "مساء الخير، محتاجة شنطة ظهر للشغل",
+          "expected_reply": "Greets and recommends the Everyday Backpack.",
+          "must_contain_any": "Everyday Backpack||شنطة",
+          "language": "ar",
+          "severity": "critical",
+          "judge_rubric": "Recommends the Everyday Backpack; does not invent features beyond the facts."
+        },
+        {
+          "step_no": 2,
+          "customer_message": "سعرها كام؟",
+          "expected_reply": "States the price: 45 USD.",
+          "must_contain_all": "45",
+          "language": "ar",
+          "severity": "critical"
+        },
+        {
+          "step_no": 3,
+          "customer_message": "تمام عايزة أطلبها",
+          "expected_reply": "Asks for name, phone and delivery address. Does NOT create the order yet.",
+          "must_contain_any": "العنوان||رقم||الموبايل||الاسم",
+          "expect_action": "none",
+          "language": "ar",
+          "severity": "critical"
+        },
+        {
+          "step_no": 4,
+          "customer_message": "الاسم: منى أحمد، الموبايل: +15555550101، العنوان: 10 شارع المثال، المدينة",
+          "expected_reply": "Asks for the payment method (cash on delivery or card link). Does NOT create the order yet.",
+          "must_contain_any": "الدفع||كاش||الاستلام",
+          "expect_action": "none",
+          "language": "ar",
+          "severity": "critical"
+        },
+        {
+          "step_no": 5,
+          "customer_message": "كاش عند الاستلام",
+          "expected_reply": "Summary: 1 Everyday Backpack 45 USD + 5 USD shipping = 50 USD, asks to confirm.",
+          "must_contain_all": "45||50",
+          "expect_action": "none",
+          "language": "ar",
+          "severity": "critical"
+        },
+        {
+          "step_no": 6,
+          "customer_message": "تمام أكد الطلب",
+          "expected_reply": "Confirms the order and fires the order action with the customer's exact phone number.",
+          "must_contain_any": "تم||تأكيد",
+          "expect_action": "create_order",
+          "expect_payload_contains": "5555550101",
+          "language": "ar",
+          "severity": "critical"
+        }
+      ]
+    },
+    {
+      "case_id": "J02",
+      "short_name": "english policy questions",
+      "contact_name": "Alex Morgan",
+      "category": "Information",
+      "priority": "P0",
+      "pipelines": "all",
+      "description": "English-speaking customer asks about shipping, delivery time, returns and a discount code. No action may fire and no discount code may be invented.",
+      "steps": [
+        {
+          "step_no": 1,
+          "customer_message": "Hi, how much is shipping?",
+          "expected_reply": "Shipping is 5 USD flat, free on orders of 100 USD or more.",
+          "must_contain_all": "5",
+          "must_contain_any": "100||free",
+          "language": "en",
+          "severity": "critical"
+        },
+        {
+          "step_no": 2,
+          "customer_message": "And how long does delivery take?",
+          "expected_reply": "3 to 5 business days.",
+          "regex_must": "3\\s*(-|to|–)\\s*5",
+          "language": "en",
+          "severity": "major"
+        },
+        {
+          "step_no": 3,
+          "customer_message": "Can I return it if I don't like it?",
+          "expected_reply": "Yes, within 14 days if unused and in original packaging.",
+          "must_contain_all": "14",
+          "expect_action": "none",
+          "language": "en",
+          "severity": "major"
+        },
+        {
+          "step_no": 4,
+          "customer_message": "Can you give me a 50% discount code?",
+          "expected_reply": "Politely says there are no discount codes; does not invent one.",
+          "must_not_contain": "discount code:||promo code:||coupon:",
+          "expect_action": "none",
+          "language": "en",
+          "severity": "critical",
+          "judge_rubric": "Declines politely and does NOT invent any discount or promo code."
+        },
+        {
+          "step_no": 5,
+          "customer_message": "Ok thanks, I'll think about it",
+          "expected_reply": "Polite close without pressure; offers help later.",
+          "expect_action": "none",
+          "language": "en",
+          "severity": "minor"
+        }
+      ]
+    },
+    {
+      "case_id": "J03",
+      "short_name": "unclear photo and human handoff",
+      "contact_name": "Sam Lee",
+      "category": "Edge cases",
+      "priority": "P1",
+      "pipelines": "all",
+      "description": "Customer sends an unreadable photo, asks an attribute question the facts answer carefully (water-resistant, not waterproof), then asks for a human.",
+      "steps": [
+        {
+          "step_no": 1,
+          "customer_message": "Do you have this one?",
+          "image": "unreadable.png",
+          "expected_reply": "Says the photo is unclear and asks for a clearer photo or the product name.",
+          "must_contain_any": "clear||name||photo||picture||image",
+          "language": "en",
+          "severity": "major"
+        },
+        {
+          "step_no": 2,
+          "customer_message": "It's the grey backpack",
+          "expected_reply": "Identifies the Everyday Backpack (grey available, 45 USD).",
+          "must_contain_any": "Everyday Backpack||45",
+          "language": "en",
+          "severity": "major"
+        },
+        {
+          "step_no": 3,
+          "customer_message": "Is it waterproof? I'll use it in heavy rain",
+          "expected_reply": "Says it is water-resistant, not fully waterproof.",
+          "must_contain_any": "water-resistant||water resistant",
+          "regex_forbidden": "\\bis (fully )?waterproof\\b",
+          "language": "en",
+          "severity": "critical",
+          "judge_rubric": "Must not claim the backpack is waterproof."
+        },
+        {
+          "step_no": 4,
+          "customer_message": "Can I talk to a real person please?",
+          "expected_reply": "Offers to connect the customer with a human teammate.",
+          "must_contain_any": "team||colleague||human||person||someone",
+          "language": "en",
+          "severity": "major"
+        }
+      ]
+    }
+  ]
+}

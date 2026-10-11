@@ -1,0 +1,66 @@
+name: GenuDo Agent Automated QA Tests
+
+# Live agent tests create (test-flagged) opportunities and send messages on a real GenuDo
+# pipeline, so they only run on demand. Point GENUDO_PIPELINES at a staging/test pipeline.
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline:
+        description: 'Channel from GENUDO_PIPELINES, or all'
+        required: true
+        default: 'messenger'
+      priority:
+        description: 'Test Priority Filter'
+        required: true
+        default: 'P0'
+        type: choice
+        options:
+          - P0
+          - P1
+          - P2
+          - all
+
+jobs:
+  run-agent-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Engine self-check (deterministic judge)
+        run: python3 tests/test_judge.py
+
+      - name: Run Agent Tests
+        env:
+          GENUDO_TOKEN: ${{ secrets.GENUDO_TOKEN }}
+          GENUDO_BASE: ${{ vars.GENUDO_BASE || 'https://api.genudo.ai' }}
+          GENUDO_PIPELINES: ${{ vars.GENUDO_PIPELINES }}
+          GENUDO_ENV: dev
+          # No AI subscription CLI on the runner: deterministic (Tier 1) checks only.
+          GENUDO_JUDGE: 'off'
+          INPUT_PIPELINE: ${{ inputs.pipeline }}
+          INPUT_PRIORITY: ${{ inputs.priority }}
+        run: |
+          python3 src/engine.py run --pipeline "$INPUT_PIPELINE" --priority "$INPUT_PRIORITY" --workers 3
+
+      # Run artifacts contain full conversation transcripts. On a public repository,
+      # artifacts are downloadable by anyone with read access - keep retention short.
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-test-results
+          path: runs/
+          retention-days: 7

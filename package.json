@@ -1,0 +1,25 @@
+{
+  "name": "genudo-agent-testing-engine",
+  "version": "1.0.0",
+  "description": "Headless conversation-testing engine for GenuDo AI sales agents (Python; npm scripts are convenience wrappers)",
+  "scripts": {
+    "setup": "python3 setup_env.py",
+    "test": "python3 tests/test_judge.py",
+    "agent:dry": "python3 src/engine.py run --dry-run",
+    "agent:p0": "python3 src/engine.py run --priority P0",
+    "agent:all": "python3 src/engine.py run --priority all",
+    "suite:build": "python3 src/suite_builder.py",
+    "suite:validate": "python3 src/suite_builder.py --validate"
+  },
+  "keywords": [
+    "genudo",
+    "agent-testing",
+    "ai-qa",
+    "simulation",
+    "conversation-testing",
+    "mcp"
+  ],
+  "author": "Genudo",
+  "license": "MIT",
+  "private": true
+}
