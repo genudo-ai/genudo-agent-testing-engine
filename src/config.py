@@ -4,7 +4,9 @@ Configuration and Environment Management for GenuDo Testing Engine.
 
 import json
 import os
+import re
 import sys
+from urllib.parse import urlparse
 
 def load_dotenv(dotenv_path=None):
     if dotenv_path is None:
@@ -22,12 +24,17 @@ def load_dotenv(dotenv_path=None):
             if key not in os.environ:
                 os.environ[key] = val
 
+def _is_genudo_host(url):
+    host = (urlparse(url).hostname or "").lower()
+    return urlparse(url).scheme == "https" and (host == "genudo.ai" or host.endswith(".genudo.ai"))
+
 def token_from_mcp_json(start):
     """Reuse the `genudo` server's bearer token from the nearest .mcp.json at or above `start`.
 
     Client folders made by `loredex workspace` (or `claude mcp add --header`) already hold a
     per-client token there, so an engine cloned inside one needs no token of its own.
-    Returns (token, mcp_url, path) or ("", "", "").
+    Only an https *.genudo.ai server qualifies, and only ${GENUDO_*} references are expanded.
+    GENUDO_BASE is never taken from the file. Returns (token, mcp_url, path) or ("", "", "").
     """
     d = os.path.abspath(start)
     while True:
@@ -36,10 +43,15 @@ def token_from_mcp_json(start):
             try:
                 with open(p, encoding="utf-8") as f:
                     srv = json.load(f)["mcpServers"]["genudo"]
-                auth = os.path.expandvars(srv.get("headers", {}).get("Authorization", ""))
+                url = srv.get("url", "")
+                if not _is_genudo_host(url):
+                    raise ValueError("not a genudo.ai server")  # never hand a token to another host
+                # Expand only ${GENUDO_*} references, never arbitrary secrets from the environment.
+                auth = re.sub(r"\$\{(GENUDO_[A-Z0-9_]+)\}", lambda m: os.environ.get(m.group(1), m.group(0)),
+                              srv.get("headers", {}).get("Authorization", ""))
                 tok = auth.removeprefix("Bearer ").strip()
                 if tok and "$" not in tok:
-                    return tok, srv.get("url", ""), p
+                    return tok, url, p
             except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 pass
         parent = os.path.dirname(d)
@@ -55,8 +67,6 @@ if not os.environ.get("GENUDO_TOKEN"):
     _tok, _url, _src = token_from_mcp_json(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if _tok:
         os.environ["GENUDO_TOKEN"] = _tok  # set in env so judge redaction / env scrubbing see it
-        if _url and not os.environ.get("GENUDO_BASE"):
-            os.environ["GENUDO_BASE"] = _url.rstrip("/").removesuffix("/mcp")
         print(f"[config] Using the GenuDo token from {_src}", file=sys.stderr)
 
 GENUDO_BASE = os.environ.get("GENUDO_BASE", "https://api.genudo.ai").rstrip("/")
