@@ -40,7 +40,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Engine self-check (deterministic judge)
-        run: python3 tests/test_judge.py
+        run: python3 tests/test_judge.py && python3 tests/test_config.py
 
       - name: Run Agent Tests
         env:

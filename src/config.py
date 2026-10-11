@@ -2,6 +2,7 @@
 Configuration and Environment Management for GenuDo Testing Engine.
 """
 
+import json
 import os
 import sys
 
@@ -21,7 +22,42 @@ def load_dotenv(dotenv_path=None):
             if key not in os.environ:
                 os.environ[key] = val
 
+def token_from_mcp_json(start):
+    """Reuse the `genudo` server's bearer token from the nearest .mcp.json at or above `start`.
+
+    Client folders made by `loredex workspace` (or `claude mcp add --header`) already hold a
+    per-client token there, so an engine cloned inside one needs no token of its own.
+    Returns (token, mcp_url, path) or ("", "", "").
+    """
+    d = os.path.abspath(start)
+    while True:
+        p = os.path.join(d, ".mcp.json")
+        if os.path.isfile(p):
+            try:
+                with open(p, encoding="utf-8") as f:
+                    srv = json.load(f)["mcpServers"]["genudo"]
+                auth = os.path.expandvars(srv.get("headers", {}).get("Authorization", ""))
+                tok = auth.removeprefix("Bearer ").strip()
+                if tok and "$" not in tok:
+                    return tok, srv.get("url", ""), p
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                pass
+        parent = os.path.dirname(d)
+        if parent == d:
+            return "", "", ""
+        d = parent
+
 load_dotenv()
+
+if os.environ.get("GENUDO_TOKEN", "").startswith("your_"):  # untouched .env.example placeholder
+    del os.environ["GENUDO_TOKEN"]
+if not os.environ.get("GENUDO_TOKEN"):
+    _tok, _url, _src = token_from_mcp_json(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _tok:
+        os.environ["GENUDO_TOKEN"] = _tok  # set in env so judge redaction / env scrubbing see it
+        if _url and not os.environ.get("GENUDO_BASE"):
+            os.environ["GENUDO_BASE"] = _url.rstrip("/").removesuffix("/mcp")
+        print(f"[config] Using the GenuDo token from {_src}", file=sys.stderr)
 
 GENUDO_BASE = os.environ.get("GENUDO_BASE", "https://api.genudo.ai").rstrip("/")
 GENUDO_TOKEN = os.environ.get("GENUDO_TOKEN", "")

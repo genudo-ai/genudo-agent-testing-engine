@@ -18,6 +18,7 @@ The engine works for any business and any vertical. You describe the business, i
 
 - Python 3.9+. `openpyxl` is needed only for `.xlsx` suites and for `suite_builder.py`. JSON suites run on the standard library alone.
 - **`GENUDO_TOKEN`**: a GenuDo API bearer token. The same token is used for both `{GENUDO_BASE}/mcp` (MCP tools: messages, action results, stages, bulk opportunity updates) and `{GENUDO_BASE}/api/user/*` (REST: create test opportunities, send test messages, pause conversations). Create it in the GenuDo console under **Developer → API Keys & Tokens → Create token**, with `mcp:use` plus the scopes that cover writing opportunities, conversations and messages (pick them by name from the console's scope list). The token is shown once; keep it in `.env`, never in the repo.
+- **Inside a client folder?** If `GENUDO_TOKEN` is not set, the engine looks for the nearest `.mcp.json` at or above its own folder and reuses the `genudo` server's `Authorization: Bearer` token (and its URL as `GENUDO_BASE`). Clone the engine inside a client folder made by `loredex workspace` and it needs no token of its own, as long as that token has the write scopes above.
 - **An `Archived` stage in every pipeline you test.** At the end of a run, every test opportunity is moved to this stage and its conversation is paused, so test leads never stay in your live funnel. If the stage is missing, the engine warns you and leaves the opportunities where they are. The stage name can be changed with `GENUDO_ARCHIVED_STAGE`.
 - Optional, for the LLM judge: the [`claude`](https://docs.anthropic.com/en/docs/claude-code) CLI (Claude Code subscription) or the [`codex`](https://github.com/openai/codex) CLI (ChatGPT subscription), logged in.
 
@@ -136,7 +137,7 @@ Run output contains full conversation transcripts. Treat it as sensitive.
 ## Engine self-check
 
 ```bash
-python3 tests/test_judge.py        # or: python3 -m pytest tests/
+python3 tests/test_judge.py && python3 tests/test_config.py   # or: python3 -m pytest tests/
 ```
 
 ## License

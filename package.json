@@ -4,7 +4,7 @@
   "description": "Headless conversation-testing engine for GenuDo AI sales agents (Python; npm scripts are convenience wrappers)",
   "scripts": {
     "setup": "python3 setup_env.py",
-    "test": "python3 tests/test_judge.py",
+    "test": "python3 tests/test_judge.py && python3 tests/test_config.py",
     "agent:dry": "python3 src/engine.py run --dry-run",
     "agent:p0": "python3 src/engine.py run --priority P0",
     "agent:all": "python3 src/engine.py run --priority all",
