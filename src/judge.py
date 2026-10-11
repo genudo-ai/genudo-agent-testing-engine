@@ -18,6 +18,7 @@ import json
 import shutil
 import difflib
 import subprocess
+import tempfile
 
 _AR_DIG = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
@@ -188,12 +189,28 @@ def resolve_judge_backend():
 
 def _judge_cmd(backend):
     model = os.environ.get("GENUDO_JUDGE_MODEL", "").strip()
+    # The prompt carries untrusted agent replies, so the judge gets no tools, no MCP servers,
+    # no GENUDO_* env and an empty working dir (see _judge_env / call site).
     if backend == "claude":
-        return ["claude", "-p", "--model", model or "haiku"]
-    cmd = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only"]
+        return ["claude", "-p", "--model", model or "haiku", "--tools", "", "--strict-mcp-config"]
+    # ponytail: codex can't disable its shell; read-only sandbox + empty cwd + scrubbed env limit it
+    cmd = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--ephemeral"]
     if model:
         cmd += ["-m", model]
     return cmd + ["-"]
+
+# API keys are dropped so the CLIs fall back to the user's subscription login, never paid API billing.
+_JUDGE_ENV_DROP = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY"}
+
+def _judge_env():
+    return {k: v for k, v in os.environ.items() if not k.startswith("GENUDO_") and k not in _JUDGE_ENV_DROP}
+
+def _redact(verdict):
+    reason = str(verdict.get("reason", ""))[:300]
+    token = os.environ.get("GENUDO_TOKEN", "").removeprefix("Bearer ").strip()
+    if token and len(token) >= 8:
+        reason = reason.replace(token, "[redacted]")
+    return {**verdict, "reason": reason}
 
 def parse_verdict(out):
     """Tolerantly pull the first JSON object containing a verdict out of CLI stdout."""
@@ -234,10 +251,12 @@ Do not fail for wording differences, synonyms, or polite colloquial variations.
 Do not use any tools. Return JSON only: {{"verdict": "pass" or "fail", "reason": "one short sentence"}}"""
 
     try:
-        proc = subprocess.run(_judge_cmd(backend), input=prompt, capture_output=True, text=True, timeout=JUDGE_TIMEOUT)
+        with tempfile.TemporaryDirectory() as empty_dir:
+            proc = subprocess.run(_judge_cmd(backend), input=prompt, capture_output=True, text=True,
+                                  timeout=JUDGE_TIMEOUT, cwd=empty_dir, env=_judge_env())
         verdict = parse_verdict(proc.stdout)
         if verdict:
-            return verdict
+            return _redact(verdict)
         detail = (proc.stderr or proc.stdout or "").strip().replace("\n", " ")[:160]
         return {"verdict": "judge_error", "reason": f"{backend} exit {proc.returncode}, no JSON verdict: {detail}"}
     except subprocess.TimeoutExpired:

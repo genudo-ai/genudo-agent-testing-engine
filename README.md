@@ -118,6 +118,8 @@ The judge sends the conversation so far, the reply, the expected behaviour, the 
 
 The prompt goes in on stdin. The first JSON object in the output that contains a verdict, `{"verdict": "pass"|"fail", "reason": "..."}`, is used. A `fail` fails the step, unless the step is `minor`, in which case it only produces a warning. If the CLI is missing, times out (120s), or returns no verdict, the step records `judge_error` and keeps its Tier-1 verdict. Set `GENUDO_JUDGE=off` to run deterministic checks only.
 
+Agent replies are untrusted input to the judge, so the judge CLI runs with no tools (`claude --tools "" --strict-mcp-config`; `codex` in its read-only sandbox, `--ephemeral`), in an empty temporary directory, without any `GENUDO_*` variables, and without `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, so it always bills your subscription login, never an API key. A token that still shows up in a verdict reason is redacted.
+
 ## Outputs
 
 Each non-dry run writes `runs/<run-id>/` (gitignored):
