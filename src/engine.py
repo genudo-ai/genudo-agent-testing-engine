@@ -501,6 +501,9 @@ def compare_runs(old_path, new_path):
     return 1 if reg else 0
 
 def main():
+    for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252; suites are Arabic
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="GenuDo Agent Test Simulation Engine")
     subparsers = parser.add_subparsers(dest="command")
 

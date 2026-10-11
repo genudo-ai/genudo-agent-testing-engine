@@ -126,6 +126,7 @@ def test_judge_cli_is_sandboxed_and_redacts_token():
             os.environ["ANTHROPIC_API_KEY"] = saved_key
     assert seen["cmd"][seen["cmd"].index("--tools") + 1] == "", seen["cmd"]
     assert "--strict-mcp-config" in seen["cmd"]
+    assert seen["encoding"] == "utf-8"  # Arabic prompts survive Windows code pages
     assert not any(k.startswith("GENUDO_") for k in seen["env"])
     assert "ANTHROPIC_API_KEY" not in seen["env"] and "OPENAI_API_KEY" not in seen["env"]
     assert os.path.abspath(seen["cwd"]) != os.getcwd()

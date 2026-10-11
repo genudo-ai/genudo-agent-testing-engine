@@ -153,6 +153,9 @@ def build_excel_suite(suite_data, output_path="test-suite.xlsx"):
     print(f"Test suite Excel workbook compiled: {output_path}")
 
 def main():
+    for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252; suites are Arabic
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="GenuDo Test Suite Compiler")
     parser.add_argument("--input", default="templates/starter-suite.json", help="Input suite JSON")
     parser.add_argument("--output-xlsx", default="templates/starter-suite.xlsx", help="Output Excel file")

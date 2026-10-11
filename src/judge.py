@@ -252,7 +252,10 @@ Do not use any tools. Return JSON only: {{"verdict": "pass" or "fail", "reason":
 
     try:
         with tempfile.TemporaryDirectory() as empty_dir:
-            proc = subprocess.run(_judge_cmd(backend), input=prompt, capture_output=True, text=True,
+            cmd = _judge_cmd(backend)
+            cmd[0] = shutil.which(cmd[0]) or cmd[0]  # Windows: resolves claude.cmd / codex.cmd
+            proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace",
                                   timeout=JUDGE_TIMEOUT, cwd=empty_dir, env=_judge_env())
         verdict = parse_verdict(proc.stdout)
         if verdict:
